@@ -23,9 +23,11 @@ public class PlayerMovement : MonoBehaviour
 
     private Vector3 _velocity;
     private bool _isGrounded;
+    private bool _canMove = true;
 
     private CharacterController _controller;
     private InputReader _input;
+
 
     private void Awake()
     {
@@ -37,22 +39,25 @@ public class PlayerMovement : MonoBehaviour
 
     private void Update()
     {
-        _isGrounded = Physics.CheckSphere(_groundCheck.position, _groundRadius, _groundMask);
-
-        if (_isGrounded && _velocity.y < 0)
+        if (_canMove)
         {
-            _velocity.y = -2f;
+            _isGrounded = Physics.CheckSphere(_groundCheck.position, _groundRadius, _groundMask);
+
+            if (_isGrounded && _velocity.y < 0)
+            {
+                _velocity.y = -2f;
+            }
+
+            float moveX = _input.MoveInput.x;
+            float moveZ = _input.MoveInput.y;
+
+            Vector3 move = transform.right * moveX + transform.forward * moveZ;
+            _controller.Move(move * _moveSpeed * Time.deltaTime);
+
+            // Gravity
+            _velocity.y += _gravity * Time.deltaTime;
+            _controller.Move(_velocity * Time.deltaTime);
         }
-
-        float moveX = _input.MoveInput.x;
-        float moveZ = _input.MoveInput.y;
-
-        Vector3 move = transform.right * moveX + transform.forward * moveZ;
-        _controller.Move(move * _moveSpeed * Time.deltaTime);
-
-        // Gravity
-        _velocity.y += _gravity * Time.deltaTime;
-        _controller.Move(_velocity * Time.deltaTime);
     }
 
     private void HandleJump()
@@ -66,5 +71,10 @@ public class PlayerMovement : MonoBehaviour
     private void OnDisable()
     {
         _input.JumpEvent -= HandleJump;
+    }
+
+    public void ToggleMovement(bool canMove)
+    {
+        _canMove = canMove;
     }
 }

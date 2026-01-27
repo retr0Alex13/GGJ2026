@@ -19,6 +19,8 @@ public class PlayerLook : MonoBehaviour
 
     private float _xRotation;
 
+    private bool _canLook = true;
+
     private void Awake()
     {
         _input = GetComponent<InputReader>();
@@ -26,7 +28,10 @@ public class PlayerLook : MonoBehaviour
 
     private void Update()
     {
-        Look();
+        if (_canLook)
+        {
+            Look();
+        }
     }
 
     private void Look()
@@ -39,5 +44,10 @@ public class PlayerLook : MonoBehaviour
 
         _cameraRoot.localRotation = Quaternion.Euler(_xRotation, 0f, 0f);
         transform.Rotate(Vector3.up * mouseX);
+    }
+
+    public void TogglePlayerLook(bool canLook)
+    {
+        _canLook = canLook;
     }
 }
