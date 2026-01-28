@@ -1,8 +1,31 @@
+using System;
+using System.Linq;
+using UnityEditor.MemoryProfiler;
 using UnityEngine;
+using UnityEngine.Experimental.GlobalIllumination;
 using UnityEngine.InputSystem;
+using UnityEngine.LowLevel;
+using Random = UnityEngine.Random;
 
-public class ElectricalPanel : MonoBehaviour
+public class ElectricalPanel : MonoBehaviour, IInteractable
 {
+    public bool IsInteractable { get; private set; } = true;
+
+    [SerializeField]
+    private string _taskID;
+
+    [SerializeField]
+    private Connector[] _connectors;
+
+    [SerializeField]
+    private Wire[] _wires;
+
+    [SerializeField]
+    private GameObject[] _lights;
+
+    [SerializeField]
+    private Lever _lever;
+
     [SerializeField]
     private Transform _cameraPositionForTask;
 
@@ -12,86 +35,176 @@ public class ElectricalPanel : MonoBehaviour
     private PlayerLook _playerLook;
     private PlayerMovement _playerMove;
 
-    private Wire _currentWireEnd;
+    private PlayerTask _assignedTask;
+
+    private Wire _currentWire;
 
     private bool _isInteracting;
 
-    private void OnTriggerEnter(Collider other)
+    private void Start()
     {
-        if (other.gameObject.TryGetComponent(out PlayerLook playerLook))
+        _lever.OnLeverPulled += OnLeverPressed;
+
+        _assignedTask = GameManager.Instance.GetTask(_taskID);
+
+        WireColor[] allColors = (WireColor[])Enum.GetValues(typeof(WireColor));
+        WireColor[] shuffledColors = allColors.OrderBy(x => Random.value).ToArray();
+
+        for (int i = 0; i < shuffledColors.Length; i++)
         {
-            _playerLook = playerLook;
-            _playerMove = other.gameObject.GetComponent<PlayerMovement>();
-
-            _cameraSavedPosition = Camera.main.transform.position;
-            _cameraSavedRotation = Camera.main.transform.rotation;
-
-            _playerLook.TogglePlayerLook(false);
-            _playerMove.ToggleMovement(false);
-
-            Camera.main.transform.position = _cameraPositionForTask.position;
-            Camera.main.transform.rotation = _cameraPositionForTask.rotation;
-
-            _isInteracting = true;
+            _connectors[i].SetConnectorColor(shuffledColors[i]);
         }
+
+        WireColor[] wireColors;
+        do
+        {
+            wireColors = allColors.OrderBy(x => Random.value).ToArray();
+        }
+        while (Enumerable.Range(0, wireColors.Length).Any(i => wireColors[i] == _connectors[i].ConnectorColor));
+
+        for (int i = 0; i < wireColors.Length; i++)
+        {
+            _wires[i].SetWireColor(wireColors[i]);
+        }
+    }
+
+    public void OnLeverPressed()
+    {
+        foreach (Connector connector in _connectors)
+        {
+            Wire connectedWire = connector.GetWire();
+            if (connectedWire == null) return;
+            if (connectedWire.WireColor != connector.ConnectorColor) return;
+        }
+
+        _assignedTask.IncrementProgress(1);
+        IsInteractable = false;
+        _lever.IsInteractable = false;
+        foreach (GameObject light in _lights)
+        {
+            light.gameObject.SetActive(true);
+        }
+
     }
 
     private void Update()
     {
-        if (Keyboard.current.escapeKey.wasReleasedThisFrame)
-        {
-            _playerLook.TogglePlayerLook(true);
-            _playerMove.ToggleMovement(true);
-
-            Camera.main.transform.position = _cameraSavedPosition;
-            Camera.main.transform.rotation = _cameraSavedRotation;
-
-            _isInteracting = false;
-        }
-
         if (_isInteracting)
         {
+            if (Keyboard.current.escapeKey.wasReleasedThisFrame)
+            {
+                _playerLook.TogglePlayerLook(true);
+                _playerMove.ToggleMovement(true);
+
+                Camera.main.transform.position = _cameraSavedPosition;
+                Camera.main.transform.rotation = _cameraSavedRotation;
+
+                if (_currentWire != null)
+                {
+                    _currentWire.ToggleCabelPhysics(true);
+                    _currentWire = null;
+                    Debug.Log("Dropped the wire.");
+                }
+
+                _isInteracting = false;
+                return;
+            }
+
             if (Mouse.current.leftButton.wasPressedThisFrame)
             {
                 Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
                 if (Physics.Raycast(ray, out RaycastHit hitInfo))
                 {
-                    if (hitInfo.collider.gameObject.TryGetComponent(out Connector connector) && connector.GetWire() != null)
+                    if (hitInfo.collider.gameObject.TryGetComponent(out Connector connector))
                     {
-                        _currentWireEnd = connector.GetWire();
-                        connector.ReleaseWire();
+                        Wire wireInConnector = connector.GetWire();
+
+                        if (_currentWire == null && wireInConnector != null)
+                        {
+                            _currentWire = wireInConnector;
+                            connector.ReleaseWire();
+
+                            _currentWire.SetIsBeingHeld(true);
+                            _currentWire.ToggleCabelPhysics(false);
+                            Debug.Log("Took wire from connector");
+                        }
+                        else if (_currentWire != null && wireInConnector == null)
+                        {
+                            _currentWire.SetIsBeingHeld(false);
+                            connector.ConnectWire(_currentWire);
+                            _currentWire = null;
+                            Debug.Log("Plugged wire into empty connector");
+                        }
+                        else if (_currentWire != null && wireInConnector != null)
+                        {
+                            Wire tempWire = wireInConnector;
+
+                            connector.ReleaseWire();
+
+                            _currentWire.SetIsBeingHeld(false);
+                            connector.ConnectWire(_currentWire);
+
+                            _currentWire = tempWire;
+                            _currentWire.SetIsBeingHeld(true);
+                            _currentWire.ToggleCabelPhysics(false);
+
+                            Debug.Log("Swapped wires!");
+                        }
                     }
                 }
             }
-            if (_currentWireEnd != null)
+
+            if (_currentWire != null)
             {
                 Vector3 mousePosition = Mouse.current.position.ReadValue();
                 Vector3 worldPosition = Camera.main.ScreenToWorldPoint(
-                    new Vector3(mousePosition.x, mousePosition.y, Camera.main.WorldToScreenPoint(_currentWireEnd.transform.position).z)
+                    new Vector3(mousePosition.x, mousePosition.y, Camera.main.WorldToScreenPoint(_currentWire.transform.position).z)
                 );
-                worldPosition.z = _currentWireEnd.transform.position.z;
-                _currentWireEnd.transform.position = worldPosition;
+                worldPosition.z = _currentWire.transform.position.z;
+                _currentWire.transform.position = worldPosition;
+                _currentWire.SetIsBeingHeld(false);
             }
-        }
-        else
-        {
-            if (_currentWireEnd == null) return;
-
-            _currentWireEnd.ToggleCabelPhysics(true);
-            _currentWireEnd = null;
-            Debug.Log("Dropped the wire.");
         }
     }
 
-    private void OnEnable() => Connector.OnWireConnected += HandleWireConnected;
-    private void OnDisable() => Connector.OnWireConnected -= HandleWireConnected;
+    private void OnEnable()
+    {
+        Connector.OnWireConnected += HandleWireConnected;
+    }
+    private void OnDisable()
+    {
+        Connector.OnWireConnected -= HandleWireConnected;
+        _lever.OnLeverPulled -= OnLeverPressed;
+    }
 
     private void HandleWireConnected(Wire connectedWire)
     {
-        if (_currentWireEnd == connectedWire)
+        if (_currentWire == connectedWire)
         {
-            _currentWireEnd = null;
+            _currentWire = null;
             Debug.Log("Current wire locked into connector.");
         }
+    }
+
+    public void Interact(GameObject player)
+    {
+        if (!IsInteractable) return;
+        if (_isInteracting) return;
+        if (!player.TryGetComponent(out PlayerMovement playerMovement)) return;
+        if (!player.TryGetComponent(out PlayerLook playerLook)) return;
+
+        _playerMove = playerMovement;
+        _playerLook = playerLook;
+
+        _cameraSavedPosition = Camera.main.transform.position;
+        _cameraSavedRotation = Camera.main.transform.rotation;
+
+        _playerLook.TogglePlayerLook(false);
+        _playerMove.ToggleMovement(false);
+
+        Camera.main.transform.position = _cameraPositionForTask.position;
+        Camera.main.transform.rotation = _cameraPositionForTask.rotation;
+
+        _isInteracting = true;
     }
 }
