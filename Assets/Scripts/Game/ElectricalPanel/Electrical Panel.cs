@@ -38,6 +38,7 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
     private PlayerTask _assignedTask;
 
     private Wire _currentWire;
+    private Connector _lastConnector;
 
     private bool _isInteracting;
 
@@ -101,9 +102,7 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
 
                 if (_currentWire != null)
                 {
-                    _currentWire.ToggleCabelPhysics(true);
-                    _currentWire = null;
-                    Debug.Log("Dropped the wire.");
+                    ReturnWireToConnector();
                 }
 
                 _isInteracting = false;
@@ -122,6 +121,7 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
                         if (_currentWire == null && wireInConnector != null)
                         {
                             _currentWire = wireInConnector;
+                            _lastConnector = connector;
                             connector.ReleaseWire();
 
                             _currentWire.SetIsBeingHeld(true);
@@ -132,6 +132,7 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
                         {
                             _currentWire.SetIsBeingHeld(false);
                             connector.ConnectWire(_currentWire);
+                            _lastConnector = null;
                             _currentWire = null;
                             Debug.Log("Plugged wire into empty connector");
                         }
@@ -144,6 +145,7 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
                             _currentWire.SetIsBeingHeld(false);
                             connector.ConnectWire(_currentWire);
 
+                            _lastConnector = connector;
                             _currentWire = tempWire;
                             _currentWire.SetIsBeingHeld(true);
                             _currentWire.ToggleCabelPhysics(false);
@@ -184,6 +186,35 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
             _currentWire = null;
             Debug.Log("Current wire locked into connector.");
         }
+    }
+
+    private void ReturnWireToConnector()
+    {
+        _currentWire.SetIsBeingHeld(false);
+
+        if (_lastConnector != null && _lastConnector.GetWire() == null)
+        {
+            _lastConnector.ConnectWire(_currentWire);
+            Debug.Log("Wire returned to last connector.");
+        }
+        else
+        {
+            Connector freeConnector = _connectors.FirstOrDefault(c => c.GetWire() == null);
+
+            if (freeConnector != null)
+            {
+                freeConnector.ConnectWire(_currentWire);
+                Debug.Log("Last connector was busy, found a new free slot.");
+            }
+            else
+            {
+                _currentWire.ToggleCabelPhysics(true);
+                Debug.LogWarning("No free connectors found! Wire dropped.");
+            }
+        }
+
+        _currentWire = null;
+        _lastConnector = null;
     }
 
     public void Interact(GameObject player)
