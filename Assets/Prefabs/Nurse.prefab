@@ -3321,6 +3321,7 @@ GameObject:
   - component: {fileID: 6714757937933938175}
   - component: {fileID: 6663233795526257961}
   - component: {fileID: 5498919225501593350}
+  - component: {fileID: 5624640278186058313}
   m_Layer: 0
   m_Name: Nurse
   m_TagString: Player
@@ -3430,6 +3431,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 39d018cceffd20e47a8268136a440b1b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &5624640278186058313
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8597044498560582406}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b061d3ccd628564dad42ef9c9091db6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1 &8651456448014912271

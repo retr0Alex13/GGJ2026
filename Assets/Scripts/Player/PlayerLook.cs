@@ -50,4 +50,9 @@ public class PlayerLook : MonoBehaviour
     {
         _canLook = canLook;
     }
+
+    public void ToggleCameraRoot(bool isActive)
+    {
+        _cameraRoot.gameObject.SetActive(isActive);
+    }
 }
