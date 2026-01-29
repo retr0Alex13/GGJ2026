@@ -24,6 +24,9 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
     private GameObject[] _lights;
 
     [SerializeField]
+    private Door _doorToOpen;
+
+    [SerializeField]
     private Lever _lever;
 
     [SerializeField]
@@ -81,11 +84,12 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
         _assignedTask.IncrementProgress(1);
         IsInteractable = false;
         _lever.IsInteractable = false;
-        foreach (GameObject light in _lights)
-        {
-            light.gameObject.SetActive(true);
-        }
-
+        //foreach (GameObject light in _lights)
+        //{
+        //    light.gameObject.SetActive(true);
+        //}
+        Debug.Log("Electrical panel task completed!");
+        _doorToOpen.Open();
     }
 
     private void Update()
@@ -185,6 +189,30 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
         {
             _currentWire = null;
             Debug.Log("Current wire locked into connector.");
+        }
+
+        bool allCorrect = _connectors.All(connector =>
+        {
+            var wire = connector.GetWire();
+            return wire != null && wire.WireColor == connector.ConnectorColor;
+        });
+
+        if (allCorrect && _isInteracting)
+        {
+            _playerLook.TogglePlayerLook(true);
+            _playerMove.ToggleMovement(true);
+
+            Camera.main.transform.position = _cameraSavedPosition;
+            Camera.main.transform.rotation = _cameraSavedRotation;
+
+            if (_currentWire != null)
+            {
+                ReturnWireToConnector();
+            }
+
+            _isInteracting = false;
+            IsInteractable = false;
+            Debug.Log("All wires connected and colors match. Exiting interaction.");
         }
     }
 

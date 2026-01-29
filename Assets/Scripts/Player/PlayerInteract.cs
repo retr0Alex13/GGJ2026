@@ -12,11 +12,13 @@ public class PlayerInteract : MonoBehaviour
 
             if (Physics.Raycast(ray, out RaycastHit hit, 50f))
             {
-                if (!hit.collider.TryGetComponent(out IInteractable interactable)) return;
+                if (!hit.collider.TryGetComponent(out IInteractable interactable))
+                {
+                    Debug.Log("Hit " + hit.collider.name);
+                    return;
+                }
                 interactable.Interact(gameObject);
             }
-
-            Debug.Log("No interactable object found.");
         }
     }
 }

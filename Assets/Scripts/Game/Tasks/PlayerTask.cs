@@ -27,10 +27,9 @@ public abstract class PlayerTask
     public void IncrementProgress(int amount)
     {
         CurrentCount += amount;
-        if (CurrentCount >= RequiredCount)
-        {
-            CurrentCount = RequiredCount;
-        }
+        if (CurrentCount >= RequiredCount) CurrentCount = RequiredCount;
+
+        GameManager.Instance.CheckProgress();
     }
 
 }
