@@ -29,6 +29,8 @@ public class Fire : MonoBehaviour
     private int _fireIndex = -1;
     private static int _nextFireIndex = 0;
 
+    private bool _hasBeenFullyExtinguished = false;
+
     public bool IsExtinguished => _healthPoints <= 0;
 
     private void Awake()
@@ -105,8 +107,9 @@ public class Fire : MonoBehaviour
 
         _fireLight.intensity = _initialLightIntensity * healthPercentage;
 
-        if (_healthPoints <= 0)
+        if (_healthPoints <= 0 && !_hasBeenFullyExtinguished)
         {
+            _hasBeenFullyExtinguished = true;
             OnFireFullyExtinguished();
         }
     }
@@ -161,5 +164,7 @@ public class Fire : MonoBehaviour
 
         _fireParticles.Play();
         _smokeParticles.Play();
+
+        _hasBeenFullyExtinguished = false;
     }
 }
