@@ -83,6 +83,38 @@ public class GameManager : MonoBehaviour
                 }
             }
         }
+
+        Fire[] fires = FindObjectsByType<Fire>(FindObjectsSortMode.None);
+        if (fires.Length > 0)
+        {
+            string fireTaskID = "firefighter_extinguisher_recording";
+            var existingRecording = PlaybackData.GetTaskEventRecording(fireTaskID);
+
+            if (existingRecording != null && existingRecording is FireExtinguisherRecording fireRecording)
+            {
+                fireRecording.ReinitializeFires(fires);
+            }
+            else
+            {
+                var recording = new FireExtinguisherRecording(CharañterType.Firefighter, fires);
+                PlaybackData.RegisterTaskEventRecording(fireTaskID, recording);
+            }
+
+            Extinguisher extinguisher = FindFirstObjectByType<Extinguisher>();
+            if (extinguisher != null)
+            {
+                var recording = PlaybackData.GetTaskEventRecording(fireTaskID) as FireExtinguisherRecording;
+                if (CurrentCharacter == CharañterType.Firefighter)
+                {
+                    extinguisher.SetRecording(recording);
+                    extinguisher.SetPlaybackMode(false);
+                }
+                else
+                {
+                    extinguisher.SetPlaybackMode(true);
+                }
+            }
+        }
     }
 
     private void PlaybackPreviousCharacters()
