@@ -4,15 +4,22 @@ using UnityEngine;
 public class FireExtinguisherRecording : ITaskEventRecording
 {
     private CharañterType _ownerCharacter;
-    private List<FireStateEvent> _events = new();
+    private List<FireStateEvent> _fireEvents = new();
+    private List<ExtinguisherActivationEvent> _activationEvents = new();
     private Dictionary<int, Fire> _firesByIndex = new();
     private Dictionary<int, float> _lastAppliedHealth = new();
     private float _lastPlaybackTime = 0;
+    private Extinguisher _extinguisher;
 
     public FireExtinguisherRecording(CharañterType owner, Fire[] fires)
     {
         _ownerCharacter = owner;
         ReinitializeFires(fires);
+    }
+
+    public void SetExtinguisher(Extinguisher extinguisher)
+    {
+        _extinguisher = extinguisher;
     }
 
     public void ReinitializeFires(Fire[] fires)
@@ -26,7 +33,7 @@ public class FireExtinguisherRecording : ITaskEventRecording
             _firesByIndex[fireIndex] = fire;
             _lastAppliedHealth[fireIndex] = fire.HealthPoints;
 
-            fire.SetPlaybackMode(BelongsToCharacter(_ownerCharacter) == false);
+            fire.SetPlaybackMode(!BelongsToCharacter(_ownerCharacter));
         }
 
         Debug.Log($"Initialized fire extinguisher recording with {fires.Length} fires");
@@ -34,7 +41,8 @@ public class FireExtinguisherRecording : ITaskEventRecording
 
     public void Clear()
     {
-        _events.Clear();
+        _fireEvents.Clear();
+        _activationEvents.Clear();
         _lastPlaybackTime = 0;
         _lastAppliedHealth.Clear();
         Debug.Log($"Cleared fire extinguisher events for {_ownerCharacter}");
@@ -42,9 +50,13 @@ public class FireExtinguisherRecording : ITaskEventRecording
 
     public void RecordEvent(float timestamp, object eventData)
     {
-        if (eventData is FireStateEvent evt)
+        if (eventData is FireStateEvent fireEvt)
         {
-            _events.Add(evt);
+            _fireEvents.Add(fireEvt);
+        }
+        else if (eventData is ExtinguisherActivationEvent activationEvt)
+        {
+            _activationEvents.Add(activationEvt);
         }
     }
 
@@ -66,11 +78,33 @@ public class FireExtinguisherRecording : ITaskEventRecording
         _lastAppliedHealth[fireIndex] = health;
     }
 
+    public void RecordExtinguisherState(float time, bool isActive)
+    {
+        var evt = new ExtinguisherActivationEvent
+        {
+            timestamp = time,
+            isActive = isActive
+        };
+
+        RecordEvent(time, evt);
+    }
+
     public void Playback(float currentTime)
     {
+        foreach (var evt in _activationEvents)
+        {
+            if (evt.timestamp > _lastPlaybackTime && evt.timestamp <= currentTime)
+            {
+                if (_extinguisher != null)
+                {
+                    _extinguisher.ActivateExtinguisher(evt.isActive);
+                }
+            }
+        }
+
         var assignedRuntimeIndices = new HashSet<int>();
 
-        foreach (var evt in _events)
+        foreach (var evt in _fireEvents)
         {
             if (evt.timestamp > _lastPlaybackTime && evt.timestamp <= currentTime)
             {
@@ -132,4 +166,11 @@ public struct FireStateEvent
     public float timestamp;
     public int fireIndex;
     public float health;
+}
+
+[System.Serializable]
+public struct ExtinguisherActivationEvent
+{
+    public float timestamp;
+    public bool isActive;
 }

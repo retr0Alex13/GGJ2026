@@ -17,8 +17,6 @@ public class Fire : MonoBehaviour
     [SerializeField]
     private AudioSource _fireExtinguished;
 
-    // Optional persistent ID you can set in the inspector to keep the same ID across scene reloads.
-    // If left as -1, the system will auto-assign an id at runtime.
     [SerializeField]
     private int _persistentFireId = -1;
 

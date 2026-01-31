@@ -1,9 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Centralized playback data storage with support for both movement and task events
-/// </summary>
 public static class PlaybackData
 {
     public static int MasterRandomSeed { get; private set; }

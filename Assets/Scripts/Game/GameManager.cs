@@ -13,12 +13,17 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameObject engineerObject;
     [SerializeField] private GameObject firefighterObject;
 
+    [Header("Replay Extinguisher")]
+    [SerializeField] private GameObject extinguisherPrefab;
+    [SerializeField] private Transform extinguisherReplayPosition;
+
     [Header("Recording Settings")]
     [SerializeField] private bool useOptimizedRecording = true;
     [SerializeField] private bool debugRecording = false;
 
     private MovementRecorder currentRecorder;
     private float levelTimer = 0;
+    private GameObject _replayExtinguisherInstance;
 
     public CharañterType CurrentCharacter { get; private set; }
     public static GameManager Instance { get; private set; }
@@ -67,7 +72,6 @@ public class GameManager : MonoBehaviour
                     }
                     else
                     {
-
                         panel.SetRecording(electricRecording);
                     }
                 }
@@ -85,33 +89,58 @@ public class GameManager : MonoBehaviour
         }
 
         Fire[] fires = FindObjectsByType<Fire>(FindObjectsSortMode.None);
+
         if (fires.Length > 0)
         {
             string fireTaskID = "firefighter_extinguisher_recording";
             var existingRecording = PlaybackData.GetTaskEventRecording(fireTaskID);
 
+            FireExtinguisherRecording recording;
+
             if (existingRecording != null && existingRecording is FireExtinguisherRecording fireRecording)
             {
                 fireRecording.ReinitializeFires(fires);
+                recording = fireRecording;
             }
             else
             {
-                var recording = new FireExtinguisherRecording(CharañterType.Firefighter, fires);
+                recording = new FireExtinguisherRecording(CharañterType.Firefighter, fires);
                 PlaybackData.RegisterTaskEventRecording(fireTaskID, recording);
             }
 
-            Extinguisher extinguisher = FindFirstObjectByType<Extinguisher>();
-            if (extinguisher != null)
+            if (CurrentCharacter == CharañterType.Firefighter)
             {
-                var recording = PlaybackData.GetTaskEventRecording(fireTaskID) as FireExtinguisherRecording;
-                if (CurrentCharacter == CharañterType.Firefighter)
+                Extinguisher extinguisher = firefighterObject.GetComponentInChildren<Extinguisher>();
+                if (extinguisher != null)
                 {
+                    recording.SetExtinguisher(extinguisher);
                     extinguisher.SetRecording(recording);
                     extinguisher.SetPlaybackMode(false);
+                    Debug.Log("Set up extinguisher for RECORDING");
+                }
+            }
+            else if (PlaybackData.movementRecords.ContainsKey(CharañterType.Firefighter))
+            {
+                if (extinguisherPrefab != null)
+                {
+                    _replayExtinguisherInstance = Instantiate(extinguisherPrefab, extinguisherReplayPosition);
+                    _replayExtinguisherInstance.name = "ReplayExtinguisher";
+
+                    Extinguisher replayExtinguisher = _replayExtinguisherInstance.GetComponent<Extinguisher>();
+                    if (replayExtinguisher != null)
+                    {
+                        recording.SetExtinguisher(replayExtinguisher);
+                        replayExtinguisher.SetPlaybackMode(true);
+                        Debug.Log("Spawned and set up extinguisher for PLAYBACK");
+                    }
+                    else
+                    {
+                        Debug.LogError("Extinguisher prefab doesn't have Extinguisher component!");
+                    }
                 }
                 else
                 {
-                    extinguisher.SetPlaybackMode(true);
+                    Debug.LogWarning("Extinguisher prefab not assigned in GameManager!");
                 }
             }
         }
@@ -270,8 +299,15 @@ public class GameManager : MonoBehaviour
         PlaybackData.WipeAll();
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
-}
 
+    private void OnDestroy()
+    {
+        if (_replayExtinguisherInstance != null)
+        {
+            Destroy(_replayExtinguisherInstance);
+        }
+    }
+}
 
 public enum CharañterType
 {
