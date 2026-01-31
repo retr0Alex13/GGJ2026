@@ -12,7 +12,6 @@ public class GameManager : MonoBehaviour
     [Header("Character Objects")]
     [SerializeField] private GameObject engineerObject;
     [SerializeField] private GameObject firefighterObject;
-    [SerializeField] private GameObject doctorObject;
 
     private List<CharacterFrame> currentRecording = new();
     private float levelTimer = 0;
@@ -31,6 +30,7 @@ public class GameManager : MonoBehaviour
     private void Start()
     {
         ApplyCharacterSettings();
+        Cursor.lockState = CursorLockMode.Locked;
     }
 
     private void Update()
@@ -50,7 +50,6 @@ public class GameManager : MonoBehaviour
     private void ApplyCharacterSettings()
     {
         ConfigureCharacter(engineerObject, CharaterType.Engineer);
-        ConfigureCharacter(doctorObject, CharaterType.Doctor);
         ConfigureCharacter(firefighterObject, CharaterType.Firefighter);
     }
 
@@ -66,7 +65,10 @@ public class GameManager : MonoBehaviour
             obj.GetComponent<PlayerMovement>().enabled = true;
             obj.GetComponent<PlayerLook>().ToggleCameraRoot(true);
             obj.GetComponent<PlayerLook>().enabled = true;
-            obj.GetComponent<PlayerInteract>().enabled = true;
+            if (obj.GetComponent<PlayerInteract>() != null)
+            {
+                obj.GetComponent<PlayerInteract>().enabled = true;
+            }
             obj.GetComponent<CharacterController>().enabled = true;
         }
         else if (hasRecord)
@@ -74,8 +76,16 @@ public class GameManager : MonoBehaviour
             obj.GetComponent<PlayerMovement>().enabled = false;
             obj.GetComponent<PlayerLook>().ToggleCameraRoot(false);
             obj.GetComponent<PlayerLook>().enabled = false;
-            obj.GetComponent<PlayerInteract>().enabled = false;
+            if (obj.GetComponent<PlayerInteract>() != null)
+            {
+                obj.GetComponent<PlayerInteract>().enabled = false;
+            }
             obj.GetComponent<CharacterController>().enabled = false;
+
+            foreach (SkinnedMeshRenderer renderer in obj.GetComponent<PlayerMovement>().Renderers)
+            {
+                renderer.enabled = true;
+            }
 
             var playback = obj.GetComponent<EchoPlayback>() ?? obj.AddComponent<EchoPlayback>();
             playback.Initialize(PlaybackData.Records[type]);
@@ -99,7 +109,6 @@ public class GameManager : MonoBehaviour
         return CurrentCharacter switch
         {
             CharaterType.Engineer => engineerObject,
-            CharaterType.Doctor => doctorObject,
             CharaterType.Firefighter => firefighterObject,
             _ => null
         };
@@ -124,7 +133,7 @@ public class GameManager : MonoBehaviour
 
         if (allTasksDone)
         {
-            SwitchToNextCharacter();
+            Invoke(nameof(SwitchToNextCharacter), 2f);
         }
     }
 

@@ -100,6 +100,7 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
             {
                 _playerLook.TogglePlayerLook(true);
                 _playerMove.ToggleMovement(true);
+                Cursor.lockState = CursorLockMode.Locked;
 
                 Camera.main.transform.position = _cameraSavedPosition;
                 Camera.main.transform.rotation = _cameraSavedRotation;
@@ -212,6 +213,7 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
 
             _isInteracting = false;
             IsInteractable = false;
+            Cursor.lockState = CursorLockMode.Locked;
             Debug.Log("All wires connected and colors match. Exiting interaction.");
         }
     }
@@ -251,6 +253,8 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
         if (_isInteracting) return;
         if (!player.TryGetComponent(out PlayerMovement playerMovement)) return;
         if (!player.TryGetComponent(out PlayerLook playerLook)) return;
+
+        Cursor.lockState = CursorLockMode.Confined;
 
         _playerMove = playerMovement;
         _playerLook = playerLook;

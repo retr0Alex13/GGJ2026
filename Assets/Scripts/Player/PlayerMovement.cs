@@ -16,10 +16,18 @@ public class PlayerMovement : MonoBehaviour
     private float _jumpHeight = 1f;
 
     [SerializeField]
+    private Animator _animator;
+
+    [SerializeField]
     private LayerMask _groundMask;
 
     [SerializeField]
     private Transform _groundCheck;
+
+    [SerializeField]
+    private SkinnedMeshRenderer[] _renderers;
+
+    public SkinnedMeshRenderer[] Renderers => _renderers;
 
     private Vector3 _velocity;
     private bool _isGrounded;
@@ -27,14 +35,16 @@ public class PlayerMovement : MonoBehaviour
 
     private CharacterController _controller;
     private InputReader _input;
-
-
     private void Awake()
     {
         _controller = GetComponent<CharacterController>();
         _input = GetComponent<InputReader>();
 
         _input.JumpEvent += HandleJump;
+        foreach (var renderer in _renderers)
+        {
+            renderer.enabled = false;
+        }
     }
 
     private void Update()
@@ -52,6 +62,8 @@ public class PlayerMovement : MonoBehaviour
             float moveZ = _input.MoveInput.y;
 
             Vector3 move = transform.right * moveX + transform.forward * moveZ;
+            _animator.SetFloat("MoveX", moveX);
+            _animator.SetFloat("MoveY", moveZ);
             _controller.Move(move * _moveSpeed * Time.deltaTime);
 
             // Gravity

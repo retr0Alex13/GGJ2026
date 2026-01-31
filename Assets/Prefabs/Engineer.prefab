@@ -492,6 +492,7 @@ MonoBehaviour:
   _gravity: -39.24
   _groundRadius: 0.4
   _jumpHeight: 3
+  _animator: {fileID: 5750760127506816803}
   _groundMask:
     serializedVersion: 2
     m_Bits: 8
