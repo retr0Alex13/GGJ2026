@@ -5,58 +5,129 @@ using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
+    [Header("Tasks")]
     [SerializeField] private ElectricalTask[] engineerTasks;
-    [SerializeField] private DoctorTask[] doctorTasks;
     [SerializeField] private FirefighterTask[] firefighterTasks;
 
     [Header("Character Objects")]
     [SerializeField] private GameObject engineerObject;
     [SerializeField] private GameObject firefighterObject;
 
-    private List<CharacterFrame> currentRecording = new();
+    [Header("Recording Settings")]
+    [SerializeField] private bool useOptimizedRecording = true;
+    [SerializeField] private bool debugRecording = false;
+
+    private MovementRecorder currentRecorder;
     private float levelTimer = 0;
 
-    public CharaterType CurrentCharacter { get; private set; }
+    public CharañterType CurrentCharacter { get; private set; }
     public static GameManager Instance { get; private set; }
+    public float LevelTimer => levelTimer;
 
     private void Awake()
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
 
-        CurrentCharacter = (CharaterType)PlaybackData.activePlayerIndex;
+        CurrentCharacter = (CharañterType)PlaybackData.activePlayerIndex;
     }
 
     private void Start()
     {
         ApplyCharacterSettings();
+        InitializeTaskRecordings();
         Cursor.lockState = CursorLockMode.Locked;
     }
 
     private void Update()
     {
         levelTimer += Time.deltaTime;
-        GameObject activeObj = GetActiveCharacterObject();
-        if (activeObj != null)
+
+        PlaybackPreviousCharacters();
+        PlaybackTaskEvents();
+    }
+
+    private void InitializeTaskRecordings()
+    {
+        ElectricalPanel[] electricalPanels = FindObjectsByType<ElectricalPanel>(FindObjectsSortMode.None);
+        foreach (var panel in electricalPanels)
         {
-            currentRecording.Add(new CharacterFrame(
-                activeObj.transform.position,
-                activeObj.transform.rotation,
-                levelTimer
-            ));
+            string taskID = panel.GetTaskID();
+            if (!string.IsNullOrEmpty(taskID))
+            {
+                var existingRecording = PlaybackData.GetTaskEventRecording(taskID);
+
+                if (existingRecording != null && existingRecording is ElectricalPanelRecording electricRecording)
+                {
+                    electricRecording.SetPanel(panel);
+
+                    if (!electricRecording.BelongsToCharacter(CurrentCharacter))
+                    {
+                        panel.SetPlaybackMode(true);
+                    }
+                    else
+                    {
+
+                        panel.SetRecording(electricRecording);
+                    }
+                }
+                else
+                {
+                    var recording = new ElectricalPanelRecording(CharañterType.Engineer, panel);
+                    PlaybackData.RegisterTaskEventRecording(taskID, recording);
+
+                    if (CurrentCharacter == CharañterType.Engineer)
+                    {
+                        panel.SetRecording(recording);
+                    }
+                }
+            }
         }
+    }
+
+    private void PlaybackPreviousCharacters()
+    {
+        if (CurrentCharacter > CharañterType.Engineer && PlaybackData.movementRecords.ContainsKey(CharañterType.Engineer))
+        {
+        }
+
+        if (CurrentCharacter > CharañterType.Firefighter && PlaybackData.movementRecords.ContainsKey(CharañterType.Firefighter))
+        {
+        }
+    }
+
+    private void PlaybackTaskEvents()
+    {
+        foreach (var kvp in PlaybackData.taskEventRecords)
+        {
+            if (ShouldPlaybackTaskEvents(kvp.Value))
+            {
+                kvp.Value.Playback(levelTimer);
+            }
+        }
+    }
+
+    private bool ShouldPlaybackTaskEvents(ITaskEventRecording recording)
+    {
+        if (recording.BelongsToCharacter(CharañterType.Engineer) && CurrentCharacter > CharañterType.Engineer)
+            return true;
+
+        if (recording.BelongsToCharacter(CharañterType.Firefighter) && CurrentCharacter > CharañterType.Firefighter)
+            return true;
+
+        return false;
     }
 
     private void ApplyCharacterSettings()
     {
-        ConfigureCharacter(engineerObject, CharaterType.Engineer);
-        ConfigureCharacter(firefighterObject, CharaterType.Firefighter);
+        ConfigureCharacter(engineerObject, CharañterType.Engineer);
+        ConfigureCharacter(firefighterObject, CharañterType.Firefighter);
     }
 
-    private void ConfigureCharacter(GameObject obj, CharaterType type)
+    private void ConfigureCharacter(GameObject obj, CharañterType type)
     {
         bool isCurrent = (CurrentCharacter == type);
-        bool hasRecord = PlaybackData.Records.ContainsKey(type);
+        bool hasRecord = PlaybackData.movementRecords.ContainsKey(type);
 
         obj.SetActive(isCurrent || hasRecord);
 
@@ -70,6 +141,14 @@ public class GameManager : MonoBehaviour
                 obj.GetComponent<PlayerInteract>().enabled = true;
             }
             obj.GetComponent<CharacterController>().enabled = true;
+
+            if (useOptimizedRecording)
+            {
+                currentRecorder = obj.AddComponent<MovementRecorder>();
+            }
+            else
+            {
+            }
         }
         else if (hasRecord)
         {
@@ -87,31 +166,37 @@ public class GameManager : MonoBehaviour
                 renderer.enabled = true;
             }
 
-            var playback = obj.GetComponent<EchoPlayback>() ?? obj.AddComponent<EchoPlayback>();
-            playback.Initialize(PlaybackData.Records[type]);
+            var playback = obj.GetComponent<EchoPlayback>();
+            if (playback == null)
+                playback = obj.AddComponent<EchoPlayback>();
+
+            playback.Initialize(PlaybackData.movementRecords[type]);
         }
     }
 
     private void SwitchToNextCharacter()
     {
-        PlaybackData.SaveRecord(CurrentCharacter, currentRecording);
+        if (useOptimizedRecording && currentRecorder != null)
+        {
+            List<CharacterFrame> recording = currentRecorder.GetRecording();
+            PlaybackData.SaveMovementRecord(CurrentCharacter, recording);
+
+            if (debugRecording)
+            {
+                currentRecorder.LogRecordingStats();
+            }
+        }
 
         int nextIndex = (int)CurrentCharacter + 1;
-        if (nextIndex < System.Enum.GetValues(typeof(CharaterType)).Length)
+        if (nextIndex < System.Enum.GetValues(typeof(CharañterType)).Length)
         {
             PlaybackData.activePlayerIndex = nextIndex;
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
-    }
-
-    private GameObject GetActiveCharacterObject()
-    {
-        return CurrentCharacter switch
+        else
         {
-            CharaterType.Engineer => engineerObject,
-            CharaterType.Firefighter => firefighterObject,
-            _ => null
-        };
+            Debug.Log("All characters completed their tasks!");
+        }
     }
 
     public void CheckProgress()
@@ -120,19 +205,17 @@ public class GameManager : MonoBehaviour
 
         switch (CurrentCharacter)
         {
-            case CharaterType.Engineer:
+            case CharañterType.Engineer:
                 allTasksDone = engineerTasks.All(t => t.IsCompleted);
                 break;
-            case CharaterType.Firefighter:
+            case CharañterType.Firefighter:
                 allTasksDone = firefighterTasks.All(t => t.IsCompleted);
-                break;
-            case CharaterType.Doctor:
-                allTasksDone = doctorTasks.All(t => t.IsCompleted);
                 break;
         }
 
         if (allTasksDone)
         {
+            Debug.Log($"{CurrentCharacter} completed all tasks!");
             Invoke(nameof(SwitchToNextCharacter), 2f);
         }
     }
@@ -140,13 +223,25 @@ public class GameManager : MonoBehaviour
     public PlayerTask GetTask(string id)
     {
         return engineerTasks.Cast<PlayerTask>()
-            .Concat(doctorTasks)
             .Concat(firefighterTasks)
             .FirstOrDefault(t => t.TaskID == id);
     }
+
+    public void RestartCurrentCharacter()
+    {
+        PlaybackData.WipeCurrentCharacter();
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
+    public void RestartGame()
+    {
+        PlaybackData.WipeAll();
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
 }
 
-public enum CharaterType
+
+public enum CharañterType
 {
     Engineer,
     Firefighter,
