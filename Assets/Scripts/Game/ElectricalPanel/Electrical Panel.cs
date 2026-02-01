@@ -113,6 +113,7 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
         if (_isInteracting && !_isPlaybackMode)
         {
             HandleInteraction();
+            gameObject.GetComponent<Collider>().enabled = false;
         }
     }
 
@@ -232,6 +233,7 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
         }
 
         _isInteracting = false;
+        gameObject.GetComponent<Collider>().enabled = true;
     }
 
     private void ReturnWireToConnector()

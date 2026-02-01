@@ -1,131 +1,78 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Optimized movement recorder that reduces redundant frames
-/// </summary>
 public class MovementRecorder : MonoBehaviour
 {
     [Header("Recording Settings")]
-    [SerializeField] private bool recordEveryFrame = false;
-    [SerializeField] private float minTimeBetweenFrames = 0.05f; // 20 FPS
-    [SerializeField] private float minPositionChange = 0.01f;
-    [SerializeField] private float minRotationChange = 0.5f; // degrees
-    
-    private List<CharacterFrame> _recording = new();
-    private float _levelTimer = 0;
-    private float _lastRecordTime = 0;
-    
-    private Vector3 _lastPosition;
-    private Quaternion _lastRotation;
-    
+    [SerializeField] private float recordInterval = 0.05f;
+    [SerializeField] private bool optimizeRecording = true;
+
+    private List<CharacterFrame> _frames = new List<CharacterFrame>();
+    private float _nextRecordTime = 0f;
     private Transform _transform;
-    
+    private Animator _animator;
+    private float _startTime;
+    private int _frameCount = 0;
+
     private void Awake()
     {
         _transform = transform;
-        _lastPosition = _transform.position;
-        _lastRotation = _transform.rotation;
+        _animator = GetComponentInChildren<Animator>();
+        _startTime = Time.time;
     }
-    
+
     private void Update()
     {
-        _levelTimer += Time.deltaTime;
-        
-        if (recordEveryFrame)
+        if (Time.time >= _nextRecordTime)
         {
-            RecordFrameUnconditional();
-        }
-        else
-        {
-            RecordFrameOptimized();
+            RecordFrame();
+            _nextRecordTime = Time.time + recordInterval;
         }
     }
-    
-    /// <summary>
-    /// Record every frame (original behavior, memory intensive)
-    /// </summary>
-    private void RecordFrameUnconditional()
+
+    private void RecordFrame()
     {
-        _recording.Add(new CharacterFrame(
+        float currentTime = Time.time - _startTime;
+
+        float moveX = 0f;
+        float moveY = 0f;
+
+        if (_animator != null)
+        {
+            moveX = _animator.GetFloat("MoveX");
+            moveY = _animator.GetFloat("MoveY");
+        }
+
+        CharacterFrame frame = new CharacterFrame(
             _transform.position,
             _transform.rotation,
-            _levelTimer
-        ));
-    }
-    
-    /// <summary>
-    /// Record only when significant movement occurs or time threshold met
-    /// </summary>
-    private void RecordFrameOptimized()
-    {
-        bool shouldRecord = false;
-        
-        // Always record first frame
-        if (_recording.Count == 0)
+            currentTime,
+            moveX,
+            moveY
+        );
+
+        _frameCount++;
+
+        if (optimizeRecording && _frames.Count > 0)
         {
-            shouldRecord = true;
-        }
-        // Check time threshold
-        else if (_levelTimer - _lastRecordTime >= minTimeBetweenFrames)
-        {
-            // Check if position or rotation changed significantly
-            float positionDelta = Vector3.Distance(_transform.position, _lastPosition);
-            float rotationDelta = Quaternion.Angle(_transform.rotation, _lastRotation);
-            
-            if (positionDelta >= minPositionChange || rotationDelta >= minRotationChange)
+            CharacterFrame lastFrame = _frames[_frames.Count - 1];
+
+            bool posChanged = Vector3.Distance(frame.position, lastFrame.position) > 0.01f;
+            bool rotChanged = Quaternion.Angle(frame.rotation, lastFrame.rotation) > 1f;
+            bool animChanged = Mathf.Abs(frame.moveX - lastFrame.moveX) > 0.05f ||
+                              Mathf.Abs(frame.moveY - lastFrame.moveY) > 0.05f;
+
+            if (!posChanged && !rotChanged && !animChanged)
             {
-                shouldRecord = true;
+                return;
             }
         }
-        
-        if (shouldRecord)
-        {
-            _recording.Add(new CharacterFrame(
-                _transform.position,
-                _transform.rotation,
-                _levelTimer
-            ));
-            
-            _lastRecordTime = _levelTimer;
-            _lastPosition = _transform.position;
-            _lastRotation = _transform.rotation;
-        }
+
+        _frames.Add(frame);
     }
-    
-    /// <summary>
-    /// Get the recorded frames
-    /// </summary>
+
     public List<CharacterFrame> GetRecording()
     {
-        return new List<CharacterFrame>(_recording);
-    }
-    
-    /// <summary>
-    /// Get recording statistics
-    /// </summary>
-    public void LogRecordingStats()
-    {
-        if (_recording.Count == 0) return;
-        
-        float duration = _recording[_recording.Count - 1].time;
-        float avgFrameRate = _recording.Count / duration;
-        float memorySize = _recording.Count * System.Runtime.InteropServices.Marshal.SizeOf(typeof(CharacterFrame)) / 1024f;
-        
-        Debug.Log($"Recording Stats:\n" +
-                  $"- Duration: {duration:F2}s\n" +
-                  $"- Frames: {_recording.Count}\n" +
-                  $"- Avg FPS: {avgFrameRate:F1}\n" +
-                  $"- Memory: ~{memorySize:F2} KB");
-    }
-    
-    /// <summary>
-    /// Clear recording
-    /// </summary>
-    public void Clear()
-    {
-        _recording.Clear();
-        _levelTimer = 0;
-        _lastRecordTime = 0;
+        return _frames;
     }
 }

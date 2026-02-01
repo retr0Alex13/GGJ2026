@@ -6,9 +6,16 @@ public class Lever : MonoBehaviour, IInteractable
 {
     public bool IsInteractable { get; set; } = true;
 
-    //[SerializeField] private Animator _animator;
+    private Animator _animator;
+    private AudioSource _audioSource;
 
     public event Action OnLeverPulled;
+
+    private void Awake()
+    {
+        _animator = GetComponent<Animator>();
+        _audioSource = GetComponent<AudioSource>();
+    }
 
     public void Interact(GameObject player)
     {
@@ -19,13 +26,13 @@ public class Lever : MonoBehaviour, IInteractable
 
     private void PullLever()
     {
-        //if (_animator != null)
-        //{
-        //    _animator.SetTrigger("Pull");
-        //}
+        if (_animator != null)
+        {
+            _animator.SetTrigger("Pull");
+        }
+        _audioSource?.Play();
 
         OnLeverPulled?.Invoke();
-        Debug.Log("Lever pulled!");
     }
 
     public void PullLeverProgrammatically()

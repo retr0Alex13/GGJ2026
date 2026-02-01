@@ -116,7 +116,6 @@ public class GameManager : MonoBehaviour
                     recording.SetExtinguisher(extinguisher);
                     extinguisher.SetRecording(recording);
                     extinguisher.SetPlaybackMode(false);
-                    Debug.Log("Set up extinguisher for RECORDING");
                 }
             }
             else if (PlaybackData.movementRecords.ContainsKey(CharañterType.Firefighter))
@@ -131,16 +130,7 @@ public class GameManager : MonoBehaviour
                     {
                         recording.SetExtinguisher(replayExtinguisher);
                         replayExtinguisher.SetPlaybackMode(true);
-                        Debug.Log("Spawned and set up extinguisher for PLAYBACK");
                     }
-                    else
-                    {
-                        Debug.LogError("Extinguisher prefab doesn't have Extinguisher component!");
-                    }
-                }
-                else
-                {
-                    Debug.LogWarning("Extinguisher prefab not assigned in GameManager!");
                 }
             }
         }
@@ -207,9 +197,6 @@ public class GameManager : MonoBehaviour
             {
                 currentRecorder = obj.AddComponent<MovementRecorder>();
             }
-            else
-            {
-            }
         }
         else if (hasRecord)
         {
@@ -222,9 +209,20 @@ public class GameManager : MonoBehaviour
             }
             obj.GetComponent<CharacterController>().enabled = false;
 
-            foreach (SkinnedMeshRenderer renderer in obj.GetComponent<PlayerMovement>().Renderers)
+            PlayerMovement pm = obj.GetComponent<PlayerMovement>();
+            if (pm != null && pm.Renderers != null)
             {
-                renderer.enabled = true;
+                foreach (SkinnedMeshRenderer renderer in pm.Renderers)
+                {
+                    renderer.enabled = true;
+                }
+            }
+
+            Animator animator = obj.GetComponentInChildren<Animator>();
+            if (animator != null)
+            {
+                animator.enabled = true;
+                animator.applyRootMotion = false;
             }
 
             var playback = obj.GetComponent<EchoPlayback>();
@@ -241,11 +239,6 @@ public class GameManager : MonoBehaviour
         {
             List<CharacterFrame> recording = currentRecorder.GetRecording();
             PlaybackData.SaveMovementRecord(CurrentCharacter, recording);
-
-            if (debugRecording)
-            {
-                currentRecorder.LogRecordingStats();
-            }
         }
 
         int nextIndex = (int)CurrentCharacter + 1;
@@ -253,10 +246,6 @@ public class GameManager : MonoBehaviour
         {
             PlaybackData.activePlayerIndex = nextIndex;
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-        }
-        else
-        {
-            Debug.Log("All characters completed their tasks!");
         }
     }
 
@@ -276,7 +265,6 @@ public class GameManager : MonoBehaviour
 
         if (allTasksDone)
         {
-            Debug.Log($"{CurrentCharacter} completed all tasks!");
             Invoke(nameof(SwitchToNextCharacter), 2f);
         }
     }
