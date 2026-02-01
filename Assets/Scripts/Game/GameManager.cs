@@ -134,6 +134,40 @@ public class GameManager : MonoBehaviour
                 }
             }
         }
+
+        Lever[] levers = FindObjectsByType<Lever>(FindObjectsSortMode.None);
+        if (levers.Length > 0)
+        {
+            string leverTaskID = "lever_door_recording";
+            var existingRecording = PlaybackData.GetTaskEventRecording(leverTaskID);
+
+            LeverDoorRecording recording;
+
+            if (existingRecording != null && existingRecording is LeverDoorRecording leverRecording)
+            {
+                foreach (var lever in levers)
+                {
+                    leverRecording.RegisterLever(lever.GetLeverIndex(), lever);
+                    lever.SetRecording(leverRecording);
+                    lever.SetPlaybackMode(!leverRecording.BelongsToCharacter(CurrentCharacter));
+                }
+                recording = leverRecording;
+            }
+            else
+            {
+                recording = new LeverDoorRecording(CharañterType.Engineer);
+                PlaybackData.RegisterTaskEventRecording(leverTaskID, recording);
+
+                foreach (var lever in levers)
+                {
+                    recording.RegisterLever(lever.GetLeverIndex(), lever);
+                    lever.SetRecording(recording);
+                    lever.SetPlaybackMode(CurrentCharacter != CharañterType.Engineer);
+                }
+            }
+
+            Debug.Log($"Initialized lever/door recording with {levers.Length} levers");
+        }
     }
 
     private void PlaybackPreviousCharacters()
