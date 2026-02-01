@@ -90,7 +90,6 @@ public class GameManager : MonoBehaviour
         if (currentTasks == null || currentTasks.Length == 0)
             return "No tasks assigned";
 
-        // Build task list
         string taskList = $"<b>{characterName} Tasks:</b>\n\n";
 
         foreach (var task in currentTasks)
@@ -116,7 +115,6 @@ public class GameManager : MonoBehaviour
 
     private void UpdateTaskUI()
     {
-        // Don't update task UI in replay mode
         if (_isInReplayMode) return;
 
         if (CanvasUI.Instance == null) return;
@@ -129,24 +127,17 @@ public class GameManager : MonoBehaviour
     {
         Debug.Log("Setting up replay mode...");
 
-        // Unlock cursor for free camera view
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        // Hide task UI during replay
         if (CanvasUI.Instance != null)
         {
             CanvasUI.Instance.UpdateTaskText("<b>REPLAY MODE</b>\nWatching recorded gameplay...");
         }
 
-        // Disable all player controls and set both to playback mode
         ConfigureCharacterForReplay(engineerObject, CharañterType.Engineer);
         ConfigureCharacterForReplay(firefighterObject, CharañterType.Firefighter);
-
-        // Setup task playbacks
         InitializeTaskRecordings();
-
-        // Create and setup replay camera
         SetupReplayCamera();
     }
 
@@ -160,7 +151,6 @@ public class GameManager : MonoBehaviour
 
         obj.SetActive(true);
 
-        // Disable all player input components
         obj.GetComponent<PlayerMovement>().enabled = false;
         obj.GetComponent<PlayerLook>().ToggleCameraRoot(false);
         obj.GetComponent<PlayerLook>().enabled = false;
@@ -170,7 +160,6 @@ public class GameManager : MonoBehaviour
         }
         obj.GetComponent<CharacterController>().enabled = false;
 
-        // Enable renderers
         PlayerMovement pm = obj.GetComponent<PlayerMovement>();
         if (pm != null && pm.Renderers != null)
         {
@@ -180,7 +169,6 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // Setup animator
         Animator animator = obj.GetComponentInChildren<Animator>();
         if (animator != null)
         {
@@ -188,7 +176,6 @@ public class GameManager : MonoBehaviour
             animator.applyRootMotion = false;
         }
 
-        // Setup playback
         var playback = obj.GetComponent<EchoPlayback>();
         if (playback == null)
             playback = obj.AddComponent<EchoPlayback>();
@@ -198,7 +185,6 @@ public class GameManager : MonoBehaviour
 
     private void SetupReplayCamera()
     {
-        // Create replay camera
         if (replayCameraPrefab != null)
         {
             GameObject cameraObj = Instantiate(replayCameraPrefab);
@@ -241,20 +227,23 @@ public class GameManager : MonoBehaviour
     {
         levelTimer += Time.deltaTime;
 
-        // Update replay UI with current time
         if (CanvasUI.Instance != null)
         {
-            CanvasUI.Instance.UpdateTaskText($"");
-            CanvasUI.Instance.SetActiveVictoryText();
+            int minutes = Mathf.FloorToInt(levelTimer / 60f);
+            int seconds = Mathf.FloorToInt(levelTimer % 60f);
+            CanvasUI.Instance.UpdateTaskText($"<b>REPLAY MODE</b>\n\nTime: {minutes:00}:{seconds:00}");
         }
 
-        // Play back all task events
         foreach (var kvp in PlaybackData.taskEventRecords)
         {
             kvp.Value.Playback(levelTimer);
+
+            if (kvp.Key == "lever_door_recording")
+            {
+                Debug.Log($"Playing back lever_door_recording at time {levelTimer}");
+            }
         }
 
-        // Check if all playbacks are finished
         bool allFinished = true;
 
         var engineerPlayback = engineerObject.GetComponent<EchoPlayback>();
@@ -299,7 +288,7 @@ public class GameManager : MonoBehaviour
                 {
                     electricRecording.SetPanel(panel);
 
-                    if (!electricRecording.BelongsToCharacter(CurrentCharacter))
+                    if (_isInReplayMode || !electricRecording.BelongsToCharacter(CurrentCharacter))
                     {
                         panel.SetPlaybackMode(true);
                     }
@@ -313,7 +302,7 @@ public class GameManager : MonoBehaviour
                     var recording = new ElectricalPanelRecording(CharañterType.Engineer, panel);
                     PlaybackData.RegisterTaskEventRecording(taskID, recording);
 
-                    if (CurrentCharacter == CharañterType.Engineer)
+                    if (CurrentCharacter == CharañterType.Engineer && !_isInReplayMode)
                     {
                         panel.SetRecording(recording);
                     }
@@ -341,7 +330,25 @@ public class GameManager : MonoBehaviour
                 PlaybackData.RegisterTaskEventRecording(fireTaskID, recording);
             }
 
-            if (CurrentCharacter == CharañterType.Firefighter)
+            if (_isInReplayMode || CurrentCharacter != CharañterType.Firefighter)
+            {
+                if (PlaybackData.movementRecords.ContainsKey(CharañterType.Firefighter))
+                {
+                    if (extinguisherPrefab != null)
+                    {
+                        _replayExtinguisherInstance = Instantiate(extinguisherPrefab, extinguisherReplayPosition);
+                        _replayExtinguisherInstance.name = "ReplayExtinguisher";
+
+                        Extinguisher replayExtinguisher = _replayExtinguisherInstance.GetComponent<Extinguisher>();
+                        if (replayExtinguisher != null)
+                        {
+                            recording.SetExtinguisher(replayExtinguisher);
+                            replayExtinguisher.SetPlaybackMode(true);
+                        }
+                    }
+                }
+            }
+            else if (CurrentCharacter == CharañterType.Firefighter)
             {
                 Extinguisher extinguisher = firefighterObject.GetComponentInChildren<Extinguisher>();
                 if (extinguisher != null)
@@ -349,21 +356,6 @@ public class GameManager : MonoBehaviour
                     recording.SetExtinguisher(extinguisher);
                     extinguisher.SetRecording(recording);
                     extinguisher.SetPlaybackMode(false);
-                }
-            }
-            else if (PlaybackData.movementRecords.ContainsKey(CharañterType.Firefighter))
-            {
-                if (extinguisherPrefab != null)
-                {
-                    _replayExtinguisherInstance = Instantiate(extinguisherPrefab, extinguisherReplayPosition);
-                    _replayExtinguisherInstance.name = "ReplayExtinguisher";
-
-                    Extinguisher replayExtinguisher = _replayExtinguisherInstance.GetComponent<Extinguisher>();
-                    if (replayExtinguisher != null)
-                    {
-                        recording.SetExtinguisher(replayExtinguisher);
-                        replayExtinguisher.SetPlaybackMode(true);
-                    }
                 }
             }
         }
@@ -382,7 +374,10 @@ public class GameManager : MonoBehaviour
                 {
                     leverRecording.RegisterLever(lever.GetLeverIndex(), lever);
                     lever.SetRecording(leverRecording);
-                    lever.SetPlaybackMode(!leverRecording.BelongsToCharacter(CurrentCharacter));
+
+                    // In replay mode, always set to playback
+                    bool shouldPlayback = _isInReplayMode || !leverRecording.BelongsToCharacter(CurrentCharacter);
+                    lever.SetPlaybackMode(shouldPlayback);
                 }
                 recording = leverRecording;
             }
@@ -395,11 +390,14 @@ public class GameManager : MonoBehaviour
                 {
                     recording.RegisterLever(lever.GetLeverIndex(), lever);
                     lever.SetRecording(recording);
-                    lever.SetPlaybackMode(CurrentCharacter != CharañterType.Engineer);
+
+                    // In replay mode or when not playing as engineer, set to playback
+                    bool shouldPlayback = _isInReplayMode || CurrentCharacter != CharañterType.Engineer;
+                    lever.SetPlaybackMode(shouldPlayback);
                 }
             }
 
-            Debug.Log($"Initialized lever/door recording with {levers.Length} levers");
+            Debug.Log($"Initialized lever/door recording with {levers.Length} levers (Replay Mode: {_isInReplayMode})");
         }
     }
 
@@ -524,10 +522,9 @@ public class GameManager : MonoBehaviour
     {
         if (_allTasksCompleted) return;
 
-        // Don't check progress in replay mode
         if (!_isInReplayMode)
         {
-            UpdateTaskUI(); // Only update UI if not in replay mode
+            UpdateTaskUI();
         }
 
         bool allTasksDone = false;
@@ -577,45 +574,18 @@ public class GameManager : MonoBehaviour
     {
         _isInReplayMode = true;
 
-        // Save current character's recording if not already saved
         if (useOptimizedRecording && currentRecorder != null)
         {
             List<CharacterFrame> recording = currentRecorder.GetRecording();
             PlaybackData.SaveMovementRecord(CurrentCharacter, recording);
         }
 
-        // Set a special replay index to indicate replay mode
-        PlaybackData.activePlayerIndex = -1; // Special value for replay mode
+        PlaybackData.activePlayerIndex = -1;
 
-        // Reload the scene to reset everything
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
-    private GameObject GetCurrentCharacterObject()
-    {
-        switch (CurrentCharacter)
-        {
-            case CharañterType.Engineer:
-                return engineerObject;
-            case CharañterType.Firefighter:
-                return firefighterObject;
-            default:
-                return null;
-        }
-    }
-
-    private void EndGame()
-    {
-        Debug.Log("Game Complete! Returning to main menu or restarting...");
-        // You can add:
-        // - Show victory screen UI
-        // - Load main menu scene
-        // - Restart the game
-        // - Show statistics
-
-        // For now, just restart the entire game
-        RestartGame();
-    }
+    
 
     public PlayerTask GetTask(string id)
     {
