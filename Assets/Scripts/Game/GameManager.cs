@@ -34,6 +34,7 @@ public class GameManager : MonoBehaviour
     private bool _levelEnded;
     private GameObject _replayExtinguisherInstance;
     private bool _allTasksCompleted = false;
+    private AudioSource _audioSource;
 
     public CharañterType CurrentCharacter { get; private set; }
     public static GameManager Instance { get; private set; }
@@ -53,6 +54,7 @@ public class GameManager : MonoBehaviour
         {
             CurrentCharacter = (CharañterType)PlaybackData.activePlayerIndex;
         }
+        _audioSource = GetComponent<AudioSource>();
     }
 
     private void Start()
@@ -94,10 +96,9 @@ public class GameManager : MonoBehaviour
 
         foreach (var task in currentTasks)
         {
-            string checkmark = task.IsCompleted ? "v" : "o";
             string colorStart = task.IsCompleted ? "<color=#00FF00>" : "<color=#FFFFFF>";
             string colorEnd = "</color>";
-            taskList += $"{colorStart}{checkmark} {task.TaskName} ({task.CurrentCount}/{task.RequiredCount}){colorEnd}\n";
+            taskList += $"{colorStart} {task.TaskName} ({task.CurrentCount}/{task.RequiredCount}){colorEnd}\n";
         }
         string tutorialHint = "";
         if (CurrentCharacter == CharañterType.Engineer)
@@ -132,7 +133,7 @@ public class GameManager : MonoBehaviour
 
         if (CanvasUI.Instance != null)
         {
-            CanvasUI.Instance.UpdateTaskText("<b>REPLAY MODE</b>\nWatching recorded gameplay...");
+            CanvasUI.Instance.UpdateTaskText("");
         }
 
         ConfigureCharacterForReplay(engineerObject, CharañterType.Engineer);
@@ -229,9 +230,27 @@ public class GameManager : MonoBehaviour
 
         if (CanvasUI.Instance != null)
         {
-            int minutes = Mathf.FloorToInt(levelTimer / 60f);
-            int seconds = Mathf.FloorToInt(levelTimer % 60f);
-            CanvasUI.Instance.UpdateTaskText($"<b>REPLAY MODE</b>\n\nTime: {minutes:00}:{seconds:00}");
+            CanvasUI.Instance.UpdateTaskText($"");
+            CanvasUI.Instance.SetActiveVictoryText();
+        }
+
+        // Audio diagnostics and safe play
+        if (_audioSource == null)
+        {
+            Debug.LogWarning("GameManager: AudioSource is null. Attach an AudioSource to the GameManager GameObject.");
+        }
+        else
+        {
+            Debug.Log($"GameManager: AudioSource found (mute={_audioSource.mute}, volume={_audioSource.volume}, isPlaying={_audioSource.isPlaying}, clip={(_audioSource.clip != null ? _audioSource.clip.name : "null")})");
+            if (_audioSource.clip == null)
+            {
+                Debug.LogWarning("GameManager: AudioSource has no AudioClip assigned.");
+            }
+            else if (!_audioSource.isPlaying)
+            {
+                _audioSource.Play();
+                Debug.Log($"GameManager: Playing clip '{_audioSource.clip.name}'.");
+            }
         }
 
         foreach (var kvp in PlaybackData.taskEventRecords)

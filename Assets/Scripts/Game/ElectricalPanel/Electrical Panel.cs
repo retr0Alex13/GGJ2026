@@ -122,7 +122,7 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
 
         Debug.Log("Electrical panel task completed!");
         _audioSource.Play();
-        _doorToOpen.Open();
+        _doorToOpen?.Open();
     }
 
 
