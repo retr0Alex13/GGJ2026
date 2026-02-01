@@ -13,12 +13,14 @@ public class Connector : MonoBehaviour
     private Wire _wireSlot;
 
     private Material _material;
+    private AudioSource _audioSource;
 
     public static event Action<Wire> OnWireConnected;
 
     private void Awake()
     {
         _material = GetComponent<MeshRenderer>().material;
+        _audioSource = GetComponent<AudioSource>();
     }
 
     private void OnTriggerEnter(Collider other)
@@ -39,6 +41,7 @@ public class Connector : MonoBehaviour
         if (_wireSlot != null)
         {
             _wireSlot = null;
+            _audioSource.Play();
         }
     }
 
@@ -51,6 +54,8 @@ public class Connector : MonoBehaviour
     {
         wire.transform.position = _connectionPoint.position;
         wire.ToggleCabelPhysics(false);
+
+        _audioSource.Play();
 
         _wireSlot = wire;
         OnWireConnected?.Invoke(wire);
