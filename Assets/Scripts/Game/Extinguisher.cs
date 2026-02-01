@@ -102,7 +102,7 @@ public class Extinguisher : MonoBehaviour
             if (_collider != null)
                 _collider.enabled = true;
 
-            _extinguisherParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            _extinguisherParticles.Clear();
             _extinguisherParticles.Play();
 
             if (_extinguisherSource != null && !_extinguisherSource.isPlaying)
@@ -117,7 +117,7 @@ public class Extinguisher : MonoBehaviour
             if (_collider != null)
                 _collider.enabled = false;
 
-            _extinguisherParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            _extinguisherParticles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
 
             if (_extinguisherSource != null && _extinguisherSource.isPlaying)
             {
