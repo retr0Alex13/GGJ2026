@@ -25,12 +25,14 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
     private bool _isInteracting;
 
     private ElectricalPanelRecording _recording;
+    private AudioSource _audioSource;
     private bool _isPlaybackMode = false;
 
     private void Start()
     {
         _lever.OnLeverPulled += OnLeverPressed;
         _assignedTask = GameManager.Instance.GetTask(_taskID);
+        _audioSource = GetComponent<AudioSource>();
 
         InitializeWireColors();
     }
@@ -101,6 +103,7 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
         _lever.IsInteractable = false;
 
         Debug.Log("Electrical panel task completed!");
+        _audioSource.Play();
         _doorToOpen.Open();
     }
 
