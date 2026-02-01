@@ -28,11 +28,23 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
     private AudioSource _audioSource;
     private bool _isPlaybackMode = false;
 
+    private Collider _panelCollider;
+
     private void Start()
     {
         _lever.OnLeverPulled += OnLeverPressed;
         _assignedTask = GameManager.Instance.GetTask(_taskID);
         _audioSource = GetComponent<AudioSource>();
+
+        _panelCollider = GetComponent<Collider>();
+        if (_panelCollider == null)
+        {
+            Debug.LogWarning($"No Collider found on {name}. Interaction collider updates will be skipped.");
+        }
+        else
+        {
+            _panelCollider.enabled = IsInteractable;
+        }
 
         InitializeWireColors();
     }
@@ -51,6 +63,11 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
     {
         _isPlaybackMode = enabled;
         IsInteractable = !enabled;
+
+        if (_panelCollider != null)
+        {
+            _panelCollider.enabled = IsInteractable;
+        }
     }
 
     private void InitializeWireColors()
@@ -100,6 +117,7 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
 
         _assignedTask?.IncrementProgress(1);
         IsInteractable = false;
+        if (_panelCollider != null) _panelCollider.enabled = IsInteractable;
         _lever.IsInteractable = false;
 
         Debug.Log("Electrical panel task completed!");
@@ -113,7 +131,6 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
         if (_isInteracting && !_isPlaybackMode)
         {
             HandleInteraction();
-            gameObject.GetComponent<Collider>().enabled = false;
         }
     }
 
@@ -233,7 +250,11 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
         }
 
         _isInteracting = false;
-        gameObject.GetComponent<Collider>().enabled = true;
+
+        if (_panelCollider != null)
+        {
+            _panelCollider.enabled = true;
+        }
     }
 
     private void ReturnWireToConnector()
@@ -282,6 +303,11 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
         Camera.main.transform.rotation = _cameraPositionForTask.rotation;
 
         _isInteracting = true;
+
+        if (_panelCollider != null)
+        {
+            _panelCollider.enabled = false;
+        }
     }
 
     public void ReplayWireConnection(WireConnectionEvent evt)
@@ -377,6 +403,8 @@ public class ElectricalPanel : MonoBehaviour, IInteractable
         {
             ExitInteraction();
             IsInteractable = false;
+            _lever.IsInteractable = true;
+            if (_panelCollider != null) _panelCollider.enabled = IsInteractable;
         }
     }
 }

@@ -77,7 +77,7 @@ public class Fire : MonoBehaviour
 
         if (other.TryGetComponent(out Extinguisher extinguisher))
         {
-            float damage = 35f * Time.deltaTime;
+            float damage = 70f * Time.deltaTime;
             Extinguish(damage);
             _isBeingExtinguished = true;
 

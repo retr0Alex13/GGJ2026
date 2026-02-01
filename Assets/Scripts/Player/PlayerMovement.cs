@@ -72,6 +72,14 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
+    void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        if (hit.gameObject.TryGetComponent(out Fire fire))
+        {
+            GameManager.Instance.RestartCurrentCharacter();
+        }
+    }
+
     private void HandleJump()
     {
         if (_isGrounded)

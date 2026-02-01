@@ -23,7 +23,9 @@ public class GameManager : MonoBehaviour
 
     private MovementRecorder currentRecorder;
     private float levelTimer = 0;
+    private bool _levelEnded;
     private GameObject _replayExtinguisherInstance;
+    private bool _allTasksCompleted = false;
 
     public CharañterType CurrentCharacter { get; private set; }
     public static GameManager Instance { get; private set; }
@@ -50,6 +52,16 @@ public class GameManager : MonoBehaviour
 
         PlaybackPreviousCharacters();
         PlaybackTaskEvents();
+    }
+
+    public void OnPlayerDied()
+    {
+        if (_levelEnded) return;
+
+        _levelEnded = true;
+        Debug.Log("Player died! Restarting level...");
+
+        RestartCurrentCharacter();
     }
 
     private void InitializeTaskRecordings()
@@ -281,10 +293,16 @@ public class GameManager : MonoBehaviour
             PlaybackData.activePlayerIndex = nextIndex;
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
+        else
+        {
+            Debug.Log("All characters completed their tasks!");
+        }
     }
 
     public void CheckProgress()
     {
+        if (_allTasksCompleted) return;
+
         bool allTasksDone = false;
 
         switch (CurrentCharacter)
@@ -294,13 +312,58 @@ public class GameManager : MonoBehaviour
                 break;
             case CharañterType.Firefighter:
                 allTasksDone = firefighterTasks.All(t => t.IsCompleted);
-                break;
+                int totalCharacters = System.Enum.GetValues(typeof(CharañterType)).Length;
+                if ((int)CurrentCharacter == totalCharacters - 1)
+                {
+                    bool allPreviousTasksDone = engineerTasks.All(t => t.IsCompleted) &&
+                                               firefighterTasks.All(t => t.IsCompleted);
+
+                    if (allPreviousTasksDone)
+                    {
+                        _allTasksCompleted = true;
+                        OnAllTasksCompleted();
+                        return;
+                    }
+                }
+                break;        
         }
 
-        if (allTasksDone)
+        if (allTasksDone && !_allTasksCompleted)
         {
+            Debug.Log($"{CurrentCharacter} completed all tasks!");
             Invoke(nameof(SwitchToNextCharacter), 2f);
         }
+    }
+
+    private void OnAllTasksCompleted()
+    {
+
+    }
+
+    private GameObject GetCurrentCharacterObject()
+    {
+        switch (CurrentCharacter)
+        {
+            case CharañterType.Engineer:
+                return engineerObject;
+            case CharañterType.Firefighter:
+                return firefighterObject;
+            default:
+                return null;
+        }
+    }
+
+    private void EndGame()
+    {
+        Debug.Log("Game Complete! Returning to main menu or restarting...");
+        // You can add:
+        // - Show victory screen UI
+        // - Load main menu scene
+        // - Restart the game
+        // - Show statistics
+
+        // For now, just restart the entire game
+        RestartGame();
     }
 
     public PlayerTask GetTask(string id)
@@ -312,12 +375,15 @@ public class GameManager : MonoBehaviour
 
     public void RestartCurrentCharacter()
     {
+        _levelEnded = false;
+        _allTasksCompleted = false;
         PlaybackData.WipeCurrentCharacter();
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
     public void RestartGame()
     {
+        _allTasksCompleted = false;
         PlaybackData.WipeAll();
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
@@ -335,5 +401,4 @@ public enum CharañterType
 {
     Engineer,
     Firefighter,
-    Doctor,
 }

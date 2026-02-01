@@ -15,8 +15,6 @@ public class LeverDoorRecording : ITaskEventRecording
 
     public void RegisterLever(int leverIndex, Lever lever)
     {
-        // ВИПРАВЛЕННЯ: Ми завжди оновлюємо посилання, тому що при перезавантаженні 
-        // сцени створюються нові екземпляри важелів з тими ж індексами.
         if (_leversByIndex.ContainsKey(leverIndex))
         {
             _leversByIndex[leverIndex] = lever;
@@ -59,12 +57,10 @@ public class LeverDoorRecording : ITaskEventRecording
     {
         foreach (var evt in _events)
         {
-            // Перевіряємо, чи подія сталася між минулим кадром і поточним
             if (evt.timestamp > _lastPlaybackTime && evt.timestamp <= currentTime)
             {
                 if (_leversByIndex.TryGetValue(evt.leverIndex, out Lever lever))
                 {
-                    // Додаткова перевірка на null, про всяк випадок, якщо об'єкт було знищено
                     if (lever != null)
                     {
                         lever.PullLeverProgrammatically();

@@ -4,9 +4,19 @@ using UnityEngine.InputSystem;
 
 public class Lever : MonoBehaviour, IInteractable
 {
-    [SerializeField] private int leverIndex = -1; // Assign unique index in inspector
+    [SerializeField] private int leverIndex = -1;
 
-    public bool IsInteractable { get; set; } = true;
+    private bool _isInteractable = false;
+    public bool IsInteractable
+    {
+        get => _isInteractable;
+        set
+        {
+            if (_isInteractable == value) return;
+            _isInteractable = value;
+            Debug.Log($"[Lever] IsInteractable set to {_isInteractable} on {gameObject.name}\nStackTrace:\n{Environment.StackTrace}");
+        }
+    }
     private Animator _animator;
     private AudioSource _audioSource;
     private LeverDoorRecording _recording;
@@ -20,7 +30,6 @@ public class Lever : MonoBehaviour, IInteractable
         _animator = GetComponent<Animator>();
         _audioSource = GetComponent<AudioSource>();
 
-        // Auto-assign index if not set
         if (leverIndex < 0)
         {
             leverIndex = _nextLeverIndex++;
@@ -53,7 +62,7 @@ public class Lever : MonoBehaviour, IInteractable
     public void SetPlaybackMode(bool enabled)
     {
         _isPlaybackMode = enabled;
-        IsInteractable = !enabled; // Can't interact during playback
+        //IsInteractable = !enabled;
     }
 
     public void Interact(GameObject player)
@@ -62,7 +71,6 @@ public class Lever : MonoBehaviour, IInteractable
 
         PullLever();
 
-        // Record the lever pull
         if (_recording != null && GameManager.Instance != null)
         {
             _recording.RecordLeverPull(GameManager.Instance.LevelTimer, leverIndex);

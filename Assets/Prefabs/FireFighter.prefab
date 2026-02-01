@@ -489,14 +489,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Between.Player.PlayerMovement
   _moveSpeed: 10
-  _gravity: -39.24
+  _gravity: -19.62
   _groundRadius: 0.4
-  _jumpHeight: 3
+  _jumpHeight: 1
   _animator: {fileID: 5750760127506816803}
   _groundMask:
     serializedVersion: 2
     m_Bits: 8
   _groundCheck: {fileID: 7468898061913996430}
+  _renderers: []
 --- !u!114 &8812713688823122304
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -521,6 +522,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7b061d3ccd628564dad42ef9c9091db6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  useInterpolation: 1
+  interpolationSpeed: 10
 --- !u!1 &1425219254158211440
 GameObject:
   m_ObjectHideFlags: 0
