@@ -21,6 +21,14 @@ public class GameManager : MonoBehaviour
     [SerializeField] private bool useOptimizedRecording = true;
     [SerializeField] private bool debugRecording = false;
 
+    [Header("Replay Settings")]
+    [SerializeField] private GameObject replayCameraPrefab;
+    [SerializeField] private bool autoStartReplay = true;
+
+
+    private bool _isInReplayMode = false;
+    private ReplayCamera _replayCamera;
+
     private MovementRecorder currentRecorder;
     private float levelTimer = 0;
     private bool _levelEnded;
@@ -36,22 +44,235 @@ public class GameManager : MonoBehaviour
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
 
-        CurrentCharacter = (CharañterType)PlaybackData.activePlayerIndex;
+        if (PlaybackData.activePlayerIndex == -1)
+        {
+            _isInReplayMode = true;
+            CurrentCharacter = CharañterType.Engineer;
+        }
+        else
+        {
+            CurrentCharacter = (CharañterType)PlaybackData.activePlayerIndex;
+        }
     }
 
     private void Start()
     {
-        ApplyCharacterSettings();
+        if (_isInReplayMode)
+        {
+            SetupReplayMode();
+        }
+        else
+        {
+            ApplyCharacterSettings();
+            InitializeTaskRecordings();
+            UpdateTaskUI();
+            Cursor.lockState = CursorLockMode.Locked;
+        }
+    }
+
+    private string GetCurrentTaskText()
+    {
+        PlayerTask[] currentTasks = null;
+        string characterName = "";
+
+        switch (CurrentCharacter)
+        {
+            case CharañterType.Engineer:
+                currentTasks = engineerTasks.Cast<PlayerTask>().ToArray();
+                characterName = "Engineer";
+                break;
+            case CharañterType.Firefighter:
+                currentTasks = firefighterTasks.Cast<PlayerTask>().ToArray();
+                characterName = "Firefighter";
+                break;
+        }
+
+        if (currentTasks == null || currentTasks.Length == 0)
+            return "No tasks assigned";
+
+        // Build task list
+        string taskList = $"<b>{characterName} Tasks:</b>\n\n";
+
+        foreach (var task in currentTasks)
+        {
+            string checkmark = task.IsCompleted ? "v" : "o";
+            string colorStart = task.IsCompleted ? "<color=#00FF00>" : "<color=#FFFFFF>";
+            string colorEnd = "</color>";
+            taskList += $"{colorStart}{checkmark} {task.TaskName} ({task.CurrentCount}/{task.RequiredCount}){colorEnd}\n";
+        }
+        string tutorialHint = "";
+        if (CurrentCharacter == CharañterType.Engineer)
+        {
+            tutorialHint = "Press left button to interact";
+        }
+        else
+        {
+            tutorialHint = "Hold left button to spray extinguisher";
+        }
+        taskList += $"\n\n{tutorialHint}";
+        return taskList;
+    }
+
+
+    private void UpdateTaskUI()
+    {
+        // Don't update task UI in replay mode
+        if (_isInReplayMode) return;
+
+        if (CanvasUI.Instance == null) return;
+
+        string taskText = GetCurrentTaskText();
+        CanvasUI.Instance.UpdateTaskText(taskText);
+    }
+
+    private void SetupReplayMode()
+    {
+        Debug.Log("Setting up replay mode...");
+
+        // Unlock cursor for free camera view
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        // Hide task UI during replay
+        if (CanvasUI.Instance != null)
+        {
+            CanvasUI.Instance.UpdateTaskText("<b>REPLAY MODE</b>\nWatching recorded gameplay...");
+        }
+
+        // Disable all player controls and set both to playback mode
+        ConfigureCharacterForReplay(engineerObject, CharañterType.Engineer);
+        ConfigureCharacterForReplay(firefighterObject, CharañterType.Firefighter);
+
+        // Setup task playbacks
         InitializeTaskRecordings();
-        Cursor.lockState = CursorLockMode.Locked;
+
+        // Create and setup replay camera
+        SetupReplayCamera();
+    }
+
+    private void ConfigureCharacterForReplay(GameObject obj, CharañterType type)
+    {
+        if (!PlaybackData.movementRecords.ContainsKey(type))
+        {
+            obj.SetActive(false);
+            return;
+        }
+
+        obj.SetActive(true);
+
+        // Disable all player input components
+        obj.GetComponent<PlayerMovement>().enabled = false;
+        obj.GetComponent<PlayerLook>().ToggleCameraRoot(false);
+        obj.GetComponent<PlayerLook>().enabled = false;
+        if (obj.GetComponent<PlayerInteract>() != null)
+        {
+            obj.GetComponent<PlayerInteract>().enabled = false;
+        }
+        obj.GetComponent<CharacterController>().enabled = false;
+
+        // Enable renderers
+        PlayerMovement pm = obj.GetComponent<PlayerMovement>();
+        if (pm != null && pm.Renderers != null)
+        {
+            foreach (SkinnedMeshRenderer renderer in pm.Renderers)
+            {
+                renderer.enabled = true;
+            }
+        }
+
+        // Setup animator
+        Animator animator = obj.GetComponentInChildren<Animator>();
+        if (animator != null)
+        {
+            animator.enabled = true;
+            animator.applyRootMotion = false;
+        }
+
+        // Setup playback
+        var playback = obj.GetComponent<EchoPlayback>();
+        if (playback == null)
+            playback = obj.AddComponent<EchoPlayback>();
+
+        playback.Initialize(PlaybackData.movementRecords[type]);
+    }
+
+    private void SetupReplayCamera()
+    {
+        // Create replay camera
+        if (replayCameraPrefab != null)
+        {
+            GameObject cameraObj = Instantiate(replayCameraPrefab);
+            _replayCamera = cameraObj.GetComponent<ReplayCamera>();
+
+            if (_replayCamera != null)
+            {
+                Transform engineerTransform = engineerObject.transform;
+                Transform firefighterTransform = firefighterObject.transform;
+
+                _replayCamera.Initialize(engineerTransform, firefighterTransform);
+                Debug.Log("Replay camera initialized successfully");
+            }
+            else
+            {
+                Debug.LogError("ReplayCamera component not found on prefab!");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("No replay camera prefab assigned!");
+        }
     }
 
     private void Update()
     {
+        if (_isInReplayMode)
+        {
+            UpdateReplayMode();
+        }
+        else
+        {
+            levelTimer += Time.deltaTime;
+            PlaybackPreviousCharacters();
+            PlaybackTaskEvents();
+        }
+    }
+
+    private void UpdateReplayMode()
+    {
         levelTimer += Time.deltaTime;
 
-        PlaybackPreviousCharacters();
-        PlaybackTaskEvents();
+        // Update replay UI with current time
+        if (CanvasUI.Instance != null)
+        {
+            CanvasUI.Instance.UpdateTaskText($"");
+            CanvasUI.Instance.SetActiveVictoryText();
+        }
+
+        // Play back all task events
+        foreach (var kvp in PlaybackData.taskEventRecords)
+        {
+            kvp.Value.Playback(levelTimer);
+        }
+
+        // Check if all playbacks are finished
+        bool allFinished = true;
+
+        var engineerPlayback = engineerObject.GetComponent<EchoPlayback>();
+        var firefighterPlayback = firefighterObject.GetComponent<EchoPlayback>();
+
+        if (engineerPlayback != null && !engineerPlayback.IsPlaybackFinished())
+            allFinished = false;
+        if (firefighterPlayback != null && !firefighterPlayback.IsPlaybackFinished())
+            allFinished = false;
+
+        if (allFinished)
+        {
+            Debug.Log("Replay finished!");
+            if (CanvasUI.Instance != null)
+            {
+                CanvasUI.Instance.UpdateTaskText("<b>REPLAY COMPLETE</b>\n\nPress R to restart");
+            }
+        }
     }
 
     public void OnPlayerDied()
@@ -303,6 +524,12 @@ public class GameManager : MonoBehaviour
     {
         if (_allTasksCompleted) return;
 
+        // Don't check progress in replay mode
+        if (!_isInReplayMode)
+        {
+            UpdateTaskUI(); // Only update UI if not in replay mode
+        }
+
         bool allTasksDone = false;
 
         switch (CurrentCharacter)
@@ -325,7 +552,7 @@ public class GameManager : MonoBehaviour
                         return;
                     }
                 }
-                break;        
+                break;
         }
 
         if (allTasksDone && !_allTasksCompleted)
@@ -337,7 +564,31 @@ public class GameManager : MonoBehaviour
 
     private void OnAllTasksCompleted()
     {
+        Debug.Log("All tasks completed! Starting replay mode...");
+        _allTasksCompleted = true;
 
+        if (autoStartReplay)
+        {
+            Invoke(nameof(StartReplayMode), 2f);
+        }
+    }
+
+    private void StartReplayMode()
+    {
+        _isInReplayMode = true;
+
+        // Save current character's recording if not already saved
+        if (useOptimizedRecording && currentRecorder != null)
+        {
+            List<CharacterFrame> recording = currentRecorder.GetRecording();
+            PlaybackData.SaveMovementRecord(CurrentCharacter, recording);
+        }
+
+        // Set a special replay index to indicate replay mode
+        PlaybackData.activePlayerIndex = -1; // Special value for replay mode
+
+        // Reload the scene to reset everything
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
     private GameObject GetCurrentCharacterObject()
